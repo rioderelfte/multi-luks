@@ -1,0 +1,318 @@
+#!/bin/bash
+
+##
+# Copyright (c) 2010, Florian Sowade <f.sowade@r9e.de>
+#
+# Permission to use, copy, modify, and/or distribute this software for
+# any purpose with or without fee is hereby granted, provided that the
+# above copyright notice and this permission notice appear in all
+# copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+# WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+# AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+# DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+# OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+# TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+##
+
+##
+# Enable a stricter bash script processing to minimize errors in the
+# code.
+##
+set -o nounset
+set -o errexit
+
+##
+# Define the place of the configuration
+##
+CONFIG_BASE_PATH="/etc/multi-luks"
+
+##
+# Default values for configuration options
+##
+LUKS_FORMAT_OPTIONS=
+
+##
+# Print the given string to stdout
+##
+out() {
+    echo "${@}"
+}
+
+##
+# Print the given string to stderr
+##
+err() {
+    echo "${@}" >&2
+}
+
+##
+# Print a short help text and exit with exit code 1
+##
+usage() {
+    err "Usage: $(basename "${0}") [--config-dir|-c <dir>] <command> <config-file>"
+    err
+    err "options:"
+    err "    --config-dir: Specify the directory to search for config files"
+    err
+    err "commands:"
+    err "    format: Set up the encryption as descriped in the config file"
+    err "    open:   Open the devices as described in the config file"
+    err "    close:  Close all given mappings"
+    err
+    err "config file:"
+    err "    A file which describes which devices to encrypt and how to "
+    err "    generate the passphrases. The file has to be in ${CONFIG_BASE_PATH}/"
+    err
+    err "available configurations:"
+
+    local file=
+    for file in "${CONFIG_BASE_PATH}"/*; do
+        [ -r "${file}" -a -f "${file}" ] || continue
+
+        err "    - $(basename ${file})"
+    done
+
+    exit 1
+}
+
+##
+# Returns 0 if the given argument is an integer and 1 otherwise
+##
+is_int() {
+    [ -z "$(echo "${1}" | sed 's/[0-9]//g')" ]
+    return $?
+}
+
+##
+# Returns 0 if the first argument is in the space seperated list
+# given as second argument, 1 otherwise
+##
+in_list() {
+    local needle="${1}"
+    local haystack="${2}"
+
+    haystack="$(echo "${haystack}" | sed 's/ /\\|/g')"
+
+    [ -n "$(expr "${needle}" : "\(${haystack}\)$")" ]
+    return $?
+}
+
+##
+# Report an error in the DSL file and exit with code 2
+# The error message is given as parameter and in the
+# output it is prepended with the position of the error
+# in the config file
+##
+dsl_error() {
+    local message="${@}"
+    eval set -- $(caller 1)
+    err "${CONFIG_FILE}:${1}: error: ${message}"
+    exit 2
+}
+
+##
+# Ask the user for a password and store it in the PASSWORD
+# variable. The string given as first parameter is used
+# as a prommpt
+##
+ask_password() {
+    read -sp "${1}: " PASSWORD
+    echo
+}
+
+##
+# Luks Format the device given as first parameter
+##
+disc_format() {
+    local device="${1}"
+
+    err ""
+    err "WARNING!!!! This will overwrite data on '${device}' irrevocably"
+    err ""
+
+    local answer
+    read -p "Are you sure? (Type uppercase yes): " answer
+
+    if [ "${answer}" != "YES" ]; then
+        exit 5
+    fi
+
+    echo -n "${PASSWORD}" | cryptsetup ${LUKS_FORMAT_OPTIONS} luksFormat "${device}" -
+}
+
+##
+# Open the given Luks device with the given name
+##
+disc_open() {
+    local device="${1}"
+    local name="${2}"
+
+    out "Opening device '${device}' as '${name}'"
+    echo -n "${PASSWORD}" | cryptsetup --key-file - luksOpen "${device}" "${name}"
+}
+
+##
+# Close the Luks device with the given name
+##
+disc_close() {
+    local name="${1}"
+
+    out "Closing device named '${name}'"
+    cryptsetup luksClose "${name}"
+}
+
+##
+# DSL functions for the config file
+##
+
+##
+# hash the password with the given algorithm and the given count
+##
+hash() {
+    # if in closed mode return directly
+    if [ "${COMMAND}" = "close" ]; then
+        return
+    fi
+
+    if [ "${#}" -lt 2 -o "${#}" -gt 3 ]; then
+        dsl_error "hash needs exactly 2 or 3 arguments"
+    fi
+
+    local algorithm="${1}"
+    local count="${2}"
+    local salt="${3:-}"
+
+    ##
+    # list of available hash algorithms
+    # I don't know how to get a list of supported hash algorithms from
+    # openssl so I hardcoded the list here. If you know a way to get this
+    # list, please let me know.
+    ##
+    local algorithm_list="md5 md4 md2 sha1 sha sha224 sha256 sha384 sha512 mdc2 ripemd160"
+
+    # test the given parameters
+    if ! in_list "${algorithm}" "${algorithm_list}"; then
+        dsl_error "Unknown hash algorithm '${algorithm}'"
+    fi
+
+    if ! is_int "${count}"; then
+        dsl_error "'${count}' is not a number"
+    fi
+
+    local i=
+    for i in $(seq 1 "${count}"); do
+        PASSWORD="$(echo -n "${salt}${PASSWORD}" | openssl dgst -${algorithm})"
+    done
+}
+
+##
+# Format or open the given disk depending on the command
+##
+disc() {
+    if [ ! "${#}" -eq 2 ]; then
+        dsl_error "disc needs exactly 2 arguments"
+    fi
+
+    local device="${1}"
+    local name="${2}"
+
+    if [ ! -b "${device}" ]; then
+        dsl_error "'${device}' is no block device"
+    fi
+
+    if [ -n "$(echo "${name}" | sed 's/[0-9a-zA-Z_-]//g')" ]; then
+        dsl_error "The name '${name}' is invalid"
+    fi
+
+    case "${COMMAND}" in
+        open)
+            disc_open "${device}" "${name}"
+            ;;
+        format)
+            disc_format "${device}"
+            ;;
+        close)
+            disc_close "${name}"
+    esac
+}
+
+##
+# Check if the user is root
+##
+if [ ! "${UID}" -eq 0 ]; then
+    err "You need to be root to run this script"
+    exit 3
+fi
+
+##
+# Check for the --config-dir option
+##
+if [ "${#}" -gt 1 ]; then
+    if [ "${1}" = "--config-path" -o "${1}" = "-c" ]; then
+        shift
+        CONFIG_BASE_PATH="${1}"
+        shift
+    fi
+fi
+
+##
+# Check the command line options
+##
+[ "${#}" -eq 2 ] || usage
+
+COMMAND="${1}"
+CONFIG_FILE="${CONFIG_BASE_PATH}/${2}"
+
+if [ ! -d "${CONFIG_BASE_PATH}" ]; then
+    err "The config directory '${CONFIG_BASE_PATH}' does not exist"
+    exit 6
+fi
+
+if ! in_list "${COMMAND}" "format open close"; then
+    err "Unknown command '${COMMAND}'"
+    usage
+fi
+
+if [ ! \( -r "${CONFIG_FILE}" -a -f "${CONFIG_FILE}" \) ]; then
+    err "Unknown configuration '${2}'"
+    usage
+fi
+
+##
+# Check the file permissions of the config file
+##
+if [ ! "$(stat -c '%u' "${CONFIG_FILE}")" -eq 0 ]; then
+    err "Warning: The config file '${CONFIG_FILE}' is not owned by root"
+fi
+
+if [ ! "$(stat -c '%a' "${CONFIG_FILE}")" -eq 400 ]; then
+    err "Warning: The config file '${CONFIG_FILE}' does not have permissions set to 400"
+fi
+
+##
+# Initialise the global password variable
+##
+PASSWORD=
+
+if [ "${COMMAND}" != "close" ]; then
+    # Ask the user for the password
+    ask_password "Password"
+
+    # if in format mode as for the password a second time
+    if [ "${COMMAND}" = "format" ]; then
+        OLD_PASSWORD="${PASSWORD}"
+        ask_password "again"
+        if [ "${OLD_PASSWORD}" != "${PASSWORD}" ]; then
+            err "The passwords did not match"
+            exit 4
+        fi
+        unset OLD_PASSWORD
+    fi
+fi
+
+# run the DSL commands from the config file
+source "${CONFIG_FILE}"

@@ -1,0 +1,15 @@
+# A set of options to pass to cryptsetup luksFormat when it's run
+LUKS_FORMAT_OPTIONS="-c aes-xts-plain -s 256"
+
+# First hash the password 16 times using md5 and no salt
+hash md5 16
+# Next hash the password 32 using sha1 and some salt as salt.
+hash sha1 32 'some salt'
+# decrypt the disc /dev/loop0. Name the decrypted mapper crypto-test1
+disc /dev/loop0 crypto-test1
+
+# hash a little bit more for the second disc
+hash sha1 32 'some other salt'
+hash md5 16
+# decrypt the second disc
+disc /dev/loop1 crypto-test2
