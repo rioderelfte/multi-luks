@@ -8,6 +8,9 @@ hash sha1 32 'some salt'
 # decrypt the disc /dev/loop0. Name the decrypted mapper crypto-test1
 disc /dev/loop0 crypto-test1
 
+# currently the hash command supports the following hash sums:
+# md5, md4, md2, sha1, sha, sha224, sha256, sha384, sha512, mdc2 and ripemd160
+
 # hash a little bit more for the second disc
 hash sha1 32 'some other salt'
 hash md5 16
