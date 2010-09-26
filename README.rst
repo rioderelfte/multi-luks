@@ -22,6 +22,14 @@ task becomes a bit harder.
 
 __ http://code.google.com/p/cryptsetup/
 
+Warning
+=======
+
+If you use this script you should have basic knowledge about
+cryptography, hashing functions and LUKS. You should understand what
+this script does and probably you should read and understand the whole
+script before you actually use it.
+
 Requirements
 ============
 
