@@ -37,7 +37,9 @@ As multi-luks is a bash script you need version 4.0 of the bash or
 later. In addition you need LUKS. If have tested the script with
 version 1.1.0 of LUKS, but it should work with previous versions,
 too. Of course you need to have the crypto algorithms you want to use
-enabled in your kernel.
+enabled in your kernel. To calculate the hash values multi-luks uses
+openss. I have tested it with openssl version 0.9.8, but it should
+work with previous versions, too.
 
 
 Installation
