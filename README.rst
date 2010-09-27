@@ -88,7 +88,7 @@ help message and the available configurations::
 
     config file:
         A file which describes which devices to encrypt and how to 
-        generate the passphrases. The file has to be in etc/multi-luks//
+        generate the passphrases. The file has to be in /etc/multi-luks/
 
     available configurations:
         - sample
