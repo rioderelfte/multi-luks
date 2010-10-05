@@ -141,7 +141,10 @@ disc_format() {
         exit 5
     fi
 
-    echo -n "${PASSWORD}" | cryptsetup ${LUKS_FORMAT_OPTIONS} luksFormat "${device}" -
+    if ! echo -n "${PASSWORD}" | cryptsetup ${LUKS_FORMAT_OPTIONS} luksFormat "${device}" -; then
+        err "Error formating device '${device}' - exiting"
+        exit 6
+    fi
 }
 
 ##
@@ -152,7 +155,9 @@ disc_open() {
     local name="${2}"
 
     out "Opening device '${device}' as '${name}'"
-    echo -n "${PASSWORD}" | cryptsetup --key-file - luksOpen "${device}" "${name}"
+    if ! echo -n "${PASSWORD}" | cryptsetup --key-file - luksOpen "${device}" "${name}"; then
+        err "Error opening device '${device}'"
+    fi
 }
 
 ##
@@ -162,7 +167,9 @@ disc_close() {
     local name="${1}"
 
     out "Closing device named '${name}'"
-    cryptsetup luksClose "${name}"
+    if ! cryptsetup luksClose "${name}"; then
+        err "Error closing device named '${name}'"
+    fi
 }
 
 ##
