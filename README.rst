@@ -78,6 +78,13 @@ repititions::
         user    0m16.600s
         sys     0m2.980s
 
+        $ time echo -n 'password' | multi-hash sha1 10000 'some salt'
+        6971b6aa73e6e5ac2c8fb6c3dcae32389f8e5668
+
+        real    0m50.715s
+        user    2m48.290s
+        sys     0m31.780s
+
         $ # calling the compiled executable:
         $ time echo -n 'password' | ./multi-hash sha1 1000 'some salt'
         2f19781ec96834c7039e9b26a5833dc32f4b43f0
@@ -85,6 +92,13 @@ repititions::
         real    0m0.005s
         user    0m0.000s
         sys     0m0.010s
+
+        $ time echo -n 'password' | ./multi-hash sha1 10000 'some salt'
+        6971b6aa73e6e5ac2c8fb6c3dcae32389f8e5668
+
+        real    0m0.015s
+        user    0m0.020s
+        sys     0m0.000s
 
 You can build the executable by simply running make in the ``src/``
 directory. You will need ``g++`` and ``openssl`` installed. On Ubuntu
