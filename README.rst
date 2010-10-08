@@ -56,6 +56,40 @@ invoking multi-luks from the command line.
 You can find a documented sample configuration in the ``etc/``
 directory of this repository.
 
+multi-hash
+==========
+
+If you want to run the hash functions more the a dozen times, it will
+take very long to calculate the hashes. This is because for every
+single iteration the openssl executable is called.
+
+I implemented the repeated hashing of one password with the same
+algorithm and the same salt in C++. You can find the source code in
+the ``src/`` directory. If you compile this program and put it in your
+path, multi-luks will automatically find and use it. This will speed
+up the hash calculations rapidly, if you use a big number of
+repititions::
+
+        $ # calling the batch function:
+        $ time echo -n 'password' | multi-hash sha1 1000 'some salt'
+        2f19781ec96834c7039e9b26a5833dc32f4b43f0
+
+        real    0m4.873s
+        user    0m16.600s
+        sys     0m2.980s
+
+        $ # calling the compiled executable:
+        $ time echo -n 'password' | ./multi-hash sha1 1000 'some salt'
+        2f19781ec96834c7039e9b26a5833dc32f4b43f0
+
+        real    0m0.005s
+        user    0m0.000s
+        sys     0m0.010s
+
+You can build the executable by simply running make in the ``src/``
+directory. You will need ``g++`` and ``openssl`` installed. On Ubuntu
+you need the development version of the ssl library: ``libssl-dev``.
+
 Usage
 =====
 

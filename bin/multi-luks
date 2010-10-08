@@ -173,6 +173,33 @@ disc_close() {
 }
 
 ##
+# Emulate multi-hash in bash script only if the executable is not found
+##
+if [ ! -x "$(which multi-hash)" ]; then
+
+    err "Warning: using shell emulated multi-hash"
+
+    ##
+    # Hash the password given on stdin with the given algorithm count times
+    # using the given salt and print the result to stdout
+    ##
+    multi-hash() {
+        local algorithm="${1}"
+        local count="${2}"
+        local salt="${3}"
+
+        local password=$(cat)
+
+        local i=
+        for i in $(seq 1 "${count}"); do
+            password="$(echo -n "${salt}${password}" | openssl dgst -${algorithm})"
+        done
+
+        echo "${password}"
+    }
+fi
+
+##
 # DSL functions for the config file
 ##
 
@@ -210,10 +237,11 @@ hash() {
         dsl_error "'${count}' is not a number"
     fi
 
-    local i=
-    for i in $(seq 1 "${count}"); do
-        PASSWORD="$(echo -n "${salt}${PASSWORD}" | openssl dgst -${algorithm})"
-    done
+    PASSWORD="$(echo -n "${PASSWORD}" | multi-hash "${algorithm}" "${count}" "${salt}")"
+
+    if [ $? -ne 0 ]; then
+        dsl_error "Error during hashing"
+    fi
 }
 
 ##
