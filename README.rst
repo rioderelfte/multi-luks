@@ -116,6 +116,9 @@ config file. The command can be one of:
   partitions.
 - close: Closes all configured partitions using ``cryptsetup
   luksClose``.
+- backup: Backup the luks header, partition table (if available) and the
+  corresponding configuration file to a bz2 compressed tar archive in the
+  current working directory.
 
 Optionally you can overwrite the default config path
 (``/etc/multi-luks``) with the ``--config-path`` option.
@@ -133,6 +136,7 @@ help message and the available configurations::
         format: Set up the encryption as descriped in the config file
         open:   Open the devices as described in the config file
         close:  Close all given mappings
+        backup: Backup all relevant information of a given config file
 
     config file:
         A file which describes which devices to encrypt and how to 
