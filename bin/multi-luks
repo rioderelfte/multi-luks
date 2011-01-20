@@ -114,6 +114,19 @@ function tempdir() {
 }
 
 ##
+# Map from a partition blockdev to a blockdev assigned with the device
+##
+function partition_to_device() {
+    local partition_device="$(readlink -f "${1}")"
+    local partition_directory="$(dirname "${partition_device}")"
+    local partition="$(basename "${partition_device}")"
+    local major="$(cat /proc/partitions | awk "{if (\$4==\"${partition}\") {print \$1}}")"
+    local disk="$(cat /proc/partitions | awk "{if (\$1==\"${major}\" && \$2==\"0\"){print \$4}}")"
+
+    echo "${partition_directory}/${disk}"
+}
+
+##
 # Report an error in the DSL file and exit with code 2
 # The error message is given as parameter and in the
 # output it is prepended with the position of the error
@@ -191,6 +204,18 @@ disc_backup() {
     local device="${1}"
     local name="${2}"
 
+    # Try to retrieve the device to the given partition.
+    # If the device has already been given it will stay the same
+    local disk="$(partition_to_device "${device}")"
+
+    # Partition tables should only be backed up if they exist ;)
+    # TODO: If you know a nicer way to determine whether a partition table does
+    # exist on the device please let me know.
+    if ! sfdisk -l /dev/sda 2>&1 1>/dev/null|grep -qe '^No partitions found$'; then
+        out "Backing up partition table of '${name}'"
+        sfdisk -d "${disk}" >"${BACKUP_DIRECTORY_PARTITION}/${name}" 2>/dev/null
+    fi
+    
     out "Backing up luks header of '${name}'"
     cryptsetup luksHeaderBackup --header-backup-file "${BACKUP_DIRECTORY}/luks-header/${name}" "${device}"
 }
@@ -383,9 +408,10 @@ if [ "${COMMAND}" == "backup" ]; then
     BACKUP_BASE="$(tempdir)"
     BACKUP_DIRECTORY="${BACKUP_BASE}/${BACKUP_NAME}"
     BACKUP_DIRECTORY_HEADER="${BACKUP_DIRECTORY}/luks-header"
+    BACKUP_DIRECTORY_PARTITION="${BACKUP_DIRECTORY}/partition-table"
     
     # Prepare all the needed sub directories
-    mkdir -p "${BACKUP_DIRECTORY}"/luks-header
+    mkdir -p "${BACKUP_DIRECTORY}"/{luks-header,partition-table}
     
     # The multi-luks configuration is essential to use an encrypted volume set.
     # Therefore it needs to be part of the backup.
