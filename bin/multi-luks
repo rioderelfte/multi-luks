@@ -360,7 +360,7 @@ fi
 ##
 PASSWORD=
 
-if [ ! in_list "${COMMAND}" "close backup" ]; then
+if ! in_list "${COMMAND}" "close backup"; then
     # Ask the user for the password
     ask_password "Password"
 
