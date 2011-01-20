@@ -1,7 +1,9 @@
 #!/bin/bash
 
 ##
-# Copyright (c) 2010, Florian Sowade <f.sowade@r9e.de>
+# Copyright (c) 2010
+#   Florian Sowade <f.sowade@r9e.de>,
+#   Jakob Westhoff <jakob@westhoffswelt.de>
 #
 # Permission to use, copy, modify, and/or distribute this software for
 # any purpose with or without fee is hereby granted, provided that the
@@ -62,6 +64,7 @@ usage() {
     err "    format: Set up the encryption as descriped in the config file"
     err "    open:   Open the devices as described in the config file"
     err "    close:  Close all given mappings"
+    err "    backup: Backup all relevant information of a given config file"
     err
     err "config file:"
     err "    A file which describes which devices to encrypt and how to "
@@ -99,6 +102,15 @@ in_list() {
 
     [ -n "$(expr "${needle}" : "\(${haystack}\)$")" ]
     return $?
+}
+
+##
+# Create and return a temporary directory
+##
+function tempdir() {
+    local file="$(tempfile -p dir)"
+    rm "${file}" && mkdir "${file}"
+    echo "${file}"
 }
 
 ##
@@ -170,6 +182,17 @@ disc_close() {
     if ! cryptsetup luksClose "${name}"; then
         err "Error closing device named '${name}'"
     fi
+}
+
+##
+# Backup the headers and the partition table of a given disc
+##
+disc_backup() {
+    local device="${1}"
+    local name="${2}"
+
+    out "Backing up luks header of '${name}'"
+    cryptsetup luksHeaderBackup --header-backup-file "${BACKUP_DIRECTORY}/luks-header/${name}" "${device}"
 }
 
 ##
@@ -245,7 +268,7 @@ hash() {
 }
 
 ##
-# Format or open the given disk depending on the command
+# Format, open or backup the given disk depending on the command
 ##
 disc() {
     if [ ! "${#}" -eq 2 ]; then
@@ -272,6 +295,9 @@ disc() {
             ;;
         close)
             disc_close "${name}"
+            ;;
+        backup)
+            disc_backup "${device}" "${name}"
     esac
 }
 
@@ -300,14 +326,15 @@ fi
 [ "${#}" -eq 2 ] || usage
 
 COMMAND="${1}"
-CONFIG_FILE="${CONFIG_BASE_PATH}/${2}"
+CONFIG_NAME="${2}"
+CONFIG_FILE="${CONFIG_BASE_PATH}/${CONFIG_NAME}"
 
 if [ ! -d "${CONFIG_BASE_PATH}" ]; then
     err "The config directory '${CONFIG_BASE_PATH}' does not exist"
     exit 6
 fi
 
-if ! in_list "${COMMAND}" "format open close"; then
+if ! in_list "${COMMAND}" "format open close backup"; then
     err "Unknown command '${COMMAND}'"
     usage
 fi
@@ -333,7 +360,7 @@ fi
 ##
 PASSWORD=
 
-if [ "${COMMAND}" != "close" ]; then
+if [ ! in_list "${COMMAND}" "close backup" ]; then
     # Ask the user for the password
     ask_password "Password"
 
@@ -349,5 +376,32 @@ if [ "${COMMAND}" != "close" ]; then
     fi
 fi
 
+if [ "${COMMAND}" == "backup" ]; then
+    # Backups need a temporary directory to store all header backups before
+    # packaging them as a tar archive.
+    BACKUP_NAME="multi-luks-backup-$(date "+%Y%m%d")-${CONFIG_NAME}"
+    BACKUP_BASE="$(tempdir)"
+    BACKUP_DIRECTORY="${BACKUP_BASE}/${BACKUP_NAME}"
+    BACKUP_DIRECTORY_HEADER="${BACKUP_DIRECTORY}/luks-header"
+    
+    # Prepare all the needed sub directories
+    mkdir -p "${BACKUP_DIRECTORY}"/luks-header
+    
+    # The multi-luks configuration is essential to use an encrypted volume set.
+    # Therefore it needs to be part of the backup.
+    out "Backing up multi-luks configuration '${CONFIG_NAME}'"
+    cp "${CONFIG_FILE}" "${BACKUP_DIRECTORY}/"
+    
+    # All the other neccessary backup data will be processed using the dsl-file
+fi
+
 # run the DSL commands from the config file
 source "${CONFIG_FILE}"
+
+# Backups need to be compressed and stored after handling the dsl-file
+if [ "${COMMAND}" == "backup" ]; then
+    # Backups are stored to the current working directory
+    out "Packaging backup to '${BACKUP_NAME}.tar.bz2'"
+    tar cjpf "${BACKUP_NAME}.tar.bz2" -C "${BACKUP_BASE}" ./
+    rm -rf "${BACKUP_BASE}"
+fi
