@@ -287,7 +287,7 @@ fi
 # Check for the --config-dir option
 ##
 if [ "${#}" -gt 1 ]; then
-    if [ "${1}" = "--config-path" -o "${1}" = "-c" ]; then
+    if [ "${1}" = "--config-dir" -o "${1}" = "-c" ]; then
         shift
         CONFIG_BASE_PATH="${1}"
         shift
