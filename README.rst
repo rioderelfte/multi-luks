@@ -121,7 +121,7 @@ config file. The command can be one of:
   current working directory.
 
 Optionally you can overwrite the default config path
-(``/etc/multi-luks``) with the ``--config-path`` option.
+(``/etc/multi-luks``) with the ``--config-dir`` option.
 
 If you invoke multi-luks without any parameters, it prints a short
 help message and the available configurations::
