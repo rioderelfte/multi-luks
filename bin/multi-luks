@@ -401,7 +401,7 @@ if ! in_list "${COMMAND}" "close backup"; then
     fi
 fi
 
-if [ "${COMMAND}" == "backup" ]; then
+if [ "${COMMAND}" = "backup" ]; then
     # Backups need a temporary directory to store all header backups before
     # packaging them as a tar archive.
     BACKUP_NAME="multi-luks-backup-$(date "+%Y%m%d")-${CONFIG_NAME}"
@@ -425,7 +425,7 @@ fi
 source "${CONFIG_FILE}"
 
 # Backups need to be compressed and stored after handling the dsl-file
-if [ "${COMMAND}" == "backup" ]; then
+if [ "${COMMAND}" = "backup" ]; then
     # Backups are stored to the current working directory
     out "Packaging backup to '${BACKUP_NAME}.tar.bz2'"
     tar cjpf "${BACKUP_NAME}.tar.bz2" -C "${BACKUP_BASE}" ./
