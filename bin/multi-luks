@@ -215,7 +215,7 @@ disc_backup() {
         out "Backing up partition table of '${name}'"
         sfdisk -d "${disk}" >"${BACKUP_DIRECTORY_PARTITION}/${name}" 2>/dev/null
     fi
-    
+
     out "Backing up luks header of '${name}'"
     cryptsetup luksHeaderBackup --header-backup-file "${BACKUP_DIRECTORY}/luks-header/${name}" "${device}"
 }
@@ -409,15 +409,15 @@ if [ "${COMMAND}" = "backup" ]; then
     BACKUP_DIRECTORY="${BACKUP_BASE}/${BACKUP_NAME}"
     BACKUP_DIRECTORY_HEADER="${BACKUP_DIRECTORY}/luks-header"
     BACKUP_DIRECTORY_PARTITION="${BACKUP_DIRECTORY}/partition-table"
-    
+
     # Prepare all the needed sub directories
     mkdir -p "${BACKUP_DIRECTORY}"/{luks-header,partition-table}
-    
+
     # The multi-luks configuration is essential to use an encrypted volume set.
     # Therefore it needs to be part of the backup.
     out "Backing up multi-luks configuration '${CONFIG_NAME}'"
     cp "${CONFIG_FILE}" "${BACKUP_DIRECTORY}/"
-    
+
     # All the other neccessary backup data will be processed using the dsl-file
 fi
 
