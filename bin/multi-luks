@@ -107,7 +107,7 @@ in_list() {
 ##
 # Create and return a temporary directory
 ##
-function tempdir() {
+tempdir() {
     local file="$(tempfile -p dir)"
     rm "${file}" && mkdir "${file}"
     echo "${file}"
@@ -116,7 +116,7 @@ function tempdir() {
 ##
 # Map from a partition blockdev to a blockdev assigned with the device
 ##
-function partition_to_device() {
+partition_to_device() {
     local partition_device="$(readlink -f "${1}")"
     local partition_directory="$(dirname "${partition_device}")"
     local partition="$(basename "${partition_device}")"
