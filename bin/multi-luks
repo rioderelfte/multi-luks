@@ -108,9 +108,7 @@ in_list() {
 # Create and return a temporary directory
 ##
 tempdir() {
-    local file="$(tempfile -p dir)"
-    rm "${file}" && mkdir "${file}"
-    echo "${file}"
+    mktemp -d
 }
 
 ##
