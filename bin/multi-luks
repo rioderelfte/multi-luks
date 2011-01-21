@@ -404,7 +404,7 @@ fi
 if [ "${COMMAND}" = "backup" ]; then
     # Backups need a temporary directory to store all header backups before
     # packaging them as a tar archive.
-    BACKUP_NAME="multi-luks-backup-$(date "+%Y%m%d")-${CONFIG_NAME}"
+    BACKUP_NAME="multi-luks-backup-$(hostname)-$(date "+%Y%m%d")-${CONFIG_NAME}"
     BACKUP_BASE="$(tempdir)"
     BACKUP_DIRECTORY="${BACKUP_BASE}/${BACKUP_NAME}"
     BACKUP_DIRECTORY_HEADER="${BACKUP_DIRECTORY}/luks-header"
